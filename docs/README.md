@@ -34,9 +34,9 @@ The results are for $ 0.5\% \times \text{range} \leq \epsilon \leq 5\% \times \t
 
 ### Publications
 
-- **Flexible Grouping of Linear Segments for Highly Accurate Lossy Compression of Time Series Data** (2024)  
+- **[Flexible Grouping of Linear Segments for Highly Accurate Lossy Compression of Time Series Data](https://xkitsios.github.io/assets/pdf/mixpiece-vldbj24.pdf)** (2024)  
   X. Kitsios, P. Liakos, K. Papakonstantinopoulou, Y. Kotidis  
-  _The VLDB Journal_  
+  _The VLDB Journal_, Vol. 33, No. 5, pp. 1569-1589  
   DOI: [10.1007/s00778-024-00862-z](https://doi.org/10.1007/s00778-024-00862-z)
 
 - **[Sim-Piece: Highly Accurate Piecewise Linear Approximation through Similar Segment Merging](https://xkitsios.github.io/assets/pdf/simpiece-pvldb23.pdf)** (2023)  
