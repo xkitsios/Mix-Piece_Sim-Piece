@@ -1,0 +1,5 @@
+# Normalize line endings: LF in the repository and in working trees
+* text=auto eol=lf
+*.png binary
+*.jar binary
+*.gz binary
