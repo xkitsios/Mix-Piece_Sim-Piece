@@ -1,6 +1,6 @@
-package io.github.xkitsios.util;
+package io.github.xkitsios.piece.util;
 
-import io.github.xkitsios.Point;
+import io.github.xkitsios.piece.Point;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;

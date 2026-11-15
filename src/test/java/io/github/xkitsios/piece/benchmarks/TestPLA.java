@@ -1,10 +1,10 @@
-package io.github.xkitsios.benchmarks;
+package io.github.xkitsios.piece.benchmarks;
 
-import io.github.xkitsios.MixPiece;
-import io.github.xkitsios.Point;
-import io.github.xkitsios.SimPiece;
-import io.github.xkitsios.util.TimeSeries;
-import io.github.xkitsios.util.TimeSeriesReader;
+import io.github.xkitsios.piece.MixPiece;
+import io.github.xkitsios.piece.Point;
+import io.github.xkitsios.piece.SimPiece;
+import io.github.xkitsios.piece.util.TimeSeries;
+import io.github.xkitsios.piece.util.TimeSeriesReader;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -14,30 +14,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public class TestPLA {
     private long SimPiece(List<Point> ts, double epsilon) throws Exception {
         byte[] binary = SimPiece.compress(ts, epsilon);
-        List<Point> tsDecompressed = SimPiece.decompress(binary);
-        int idx = 0;
-        for (Point expected : tsDecompressed) {
-            Point actual = ts.get(idx);
-            if (expected.getTimestamp() != actual.getTimestamp()) continue;
-            idx++;
-            assertEquals(actual.getValue(), expected.getValue(), 1.1 * epsilon, "Value did not match for timestamp " + actual.getTimestamp());
-        }
-        assertEquals(idx, ts.size());
+        long[] timestamps = ts.stream().mapToLong(Point::timestamp).toArray();
+        List<Point> tsDecompressed = SimPiece.evaluateAt(SimPiece.decompress(binary), timestamps);
+        for (int idx = 0; idx < ts.size(); idx++)
+            assertEquals(ts.get(idx).value(), tsDecompressed.get(idx).value(), epsilon * (1 + 1e-9), "Value did not match for timestamp " + timestamps[idx]);
 
         return binary.length;
     }
 
     private long MixPiece(List<Point> ts, double epsilon) throws Exception {
         byte[] binary = MixPiece.compress(ts, epsilon);
-        List<Point> tsDecompressed = MixPiece.decompress(binary);
-        int idx = 0;
-        for (Point expected : tsDecompressed) {
-            Point actual = ts.get(idx);
-            if (expected.getTimestamp() != actual.getTimestamp()) continue;
-            idx++;
-            assertEquals(actual.getValue(), expected.getValue(), 1.1 * epsilon, "Value did not match for timestamp " + actual.getTimestamp());
-        }
-        assertEquals(idx, ts.size());
+        long[] timestamps = ts.stream().mapToLong(Point::timestamp).toArray();
+        List<Point> tsDecompressed = MixPiece.evaluateAt(MixPiece.decompress(binary), timestamps);
+        for (int idx = 0; idx < ts.size(); idx++)
+            assertEquals(ts.get(idx).value(), tsDecompressed.get(idx).value(), epsilon * (1 + 1e-9), "Value did not match for timestamp " + timestamps[idx]);
 
         return binary.length;
     }
@@ -51,11 +41,11 @@ public class TestPLA {
 
             System.out.println("Mix-Piece");
             for (double epsilonPct = epsilonStart; epsilonPct <= epsilonEnd; epsilonPct += epsilonStep)
-                System.out.printf("Epsilon: %.2f%%\tCompression Ratio: %.3f\n", epsilonPct * 100, (double) ts.size / MixPiece(ts.data, ts.range * epsilonPct));
+                System.out.printf("Epsilon: %.2f%%\tCompression Ratio (8 bytes per point): %.3f\n", epsilonPct * 100, (double) ts.size / MixPiece(ts.data, ts.range * epsilonPct));
 
             System.out.println("Sim-Piece");
             for (double epsilonPct = epsilonStart; epsilonPct <= epsilonEnd; epsilonPct += epsilonStep)
-                System.out.printf("Epsilon: %.2f%%\tCompression Ratio: %.3f\n", epsilonPct * 100, (double) ts.size / SimPiece(ts.data, ts.range * epsilonPct));
+                System.out.printf("Epsilon: %.2f%%\tCompression Ratio (8 bytes per point): %.3f\n", epsilonPct * 100, (double) ts.size / SimPiece(ts.data, ts.range * epsilonPct));
 
             System.out.println();
         }

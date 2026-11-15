@@ -1,38 +1,96 @@
-# Mix-Piece / Sim-Piece Library
+# Mix-Piece / Sim-Piece
 
-## Description
+Mix-Piece and Sim-Piece are lossy compression algorithms for time series with a guaranteed maximum absolute error ε.
 
-Mix-Piece and Sim-Piece are time-series lossy data compressors inspired by Piecewise Linear Approximation (PLA).
+They approximate a time series with disjoint piecewise-linear segments. Each segment starts at a value rounded to a multiple of ε and keeps the range of slopes that fit all its points. Segments that can share a slope are then merged and stored once, and the result is compressed with [Zstandard](https://github.com/facebook/zstd) (through [zstd-jni](https://github.com/luben/zstd-jni)); this last step is optional and can be turned off. The representation is considerably smaller than an optimal piecewise-linear approximation with the same error.
 
-The algorithm operates in two stages. In the first stage, an intermediate angle-based PLA representation is constructed. This involves generating disjoint PLA segments, each associated with a quantized starting point and a range of allowable slopes, determined by the error threshold. In the second stage, these intermediate segments are merged and represented together in the final output. During the merging phase, the algorithm calculates the minimum number of shared groups possible. This process leads to a highly compressed representation that is considerably smaller than what an optimal PLA description computed for the same maximum error threshold could achieve.
+Mix-Piece builds upon Sim-Piece: it handles time series with trends better, compresses faster and creates segments with smaller error. **For the best results, use Mix-Piece.** 
 
-Mix-Piece builds upon Sim-Piece by better handling time series that include trends. Mix-Piece overall surpasses Sim-Piece in terms of compression time and creates segments with smaller error. **For achieving the best results, make sure you are using Mix-Piece.**
+For the same space, Mix-Piece and Sim-Piece also have smaller mean absolute and root mean squared errors than other piecewise-linear techniques (see the papers).
 
-In our algorithm, users apply a maximum absolute error bound to generate a remarkably compact binary representation of a time series using advanced encoding techniques and general-purpose compression via [Zstandard](https://github.com/facebook/zstd).
+## Usage
 
-Mix-Piece and Sim-Piece are particularly suitable for applications requiring efficient handling of large time series datasets, even when the acceptable error threshold is very small.
+Requires Java 17+. With Maven:
 
-The following graph illustrates the performance of these algorithms on a diverse range of real datasets, comparing them to the optimal PLA representation for the same maximum error bound.
-
-![Relative Compression Ratio](docs/relative_cr.svg)
-
-Moreover, Sim-Piece and Mix-Piece achieve smaller Mean Absolute Error (MAE) and Root Mean Squared Error (RMSE) values than alternative PLA techniques for the same space (see our papers for more details).
-
-## Using the Library
-
-TODO
-
-## Test
-
-If you are interested in testing our algorithms, you can execute the following command on the testing dataset (requires Java SE 8+):
-
-```
-mvn test -Dtest=TestPLA
+```xml
+<dependency>
+    <groupId>io.github.xkitsios</groupId>
+    <artifactId>mix-piece_sim-piece</artifactId>
+    <version>1.0.0</version>
+</dependency>
 ```
 
-The results are for $ 0.5\% \times \text{range} \leq \epsilon \leq 5\% \times \text{range} $. The $range$ is defined as the difference between the maximum and the minimum value of a signal.
+### Mix-Piece
 
-### Publications
+```java
+import io.github.xkitsios.piece.*;
+import java.nio.file.*;
+
+// A time series from a CSV file with lines "t,value" (timestamps strictly increasing)
+List<Point> points = Files.readAllLines(Path.of("series.csv")).stream()
+        .map(line -> line.split(","))
+        .map(f -> new Point(Long.parseLong(f[0]), Double.parseDouble(f[1])))
+        .toList();
+
+double epsilon = 0.1;  // maximum absolute error
+
+// Compress and save
+Files.write(Path.of("series.mixpiece"), MixPiece.compress(points, epsilon));
+
+// Load and decompress
+DecompressedTimeSeries decompressed = MixPiece.decompress(Files.readAllBytes(Path.of("series.mixpiece")));
+
+// Values at given timestamps (for example the original ones)
+List<Point> atSamples = MixPiece.evaluateAt(decompressed, points.stream().mapToLong(Point::timestamp).toArray());
+
+// Value at a single time
+Point at = MixPiece.pointAt(decompressed, points.get(0).timestamp());
+
+// The series as a polyline, without needing the original timestamps
+List<Point> vertices = MixPiece.reconstructTimeSeries(decompressed);
+```
+
+### Sim-Piece
+
+The same methods, here with the time series as arrays:
+
+```java
+import io.github.xkitsios.piece.*;
+import java.nio.file.*;
+
+// A time series from a CSV file with lines "t,value" (timestamps strictly increasing)
+List<String> lines = Files.readAllLines(Path.of("series.csv"));
+long[] timestamps = lines.stream().mapToLong(line -> Long.parseLong(line.split(",")[0])).toArray();
+double[] values = lines.stream().mapToDouble(line -> Double.parseDouble(line.split(",")[1])).toArray();
+
+double epsilon = 0.1;  // maximum absolute error
+
+// Compress and save
+Files.write(Path.of("series.simpiece"), SimPiece.compress(timestamps, values, epsilon));
+
+// Load, decompress, and get the values at the original timestamps as an array
+DecompressedTimeSeries decompressed = SimPiece.decompress(Files.readAllBytes(Path.of("series.simpiece")));
+double[] decompressedValues = SimPiece.valuesAt(decompressed, timestamps);
+```
+
+Timestamps are whole numbers (Java `long`) in any unit, e.g. seconds or milliseconds. Every decompressed value at an original timestamp is within ε of the original
+one. Compression and decompression are thread-safe.
+
+> `compress(points, epsilon, false)` skips the final Zstandard step, for a slightly larger binary without the native
+> Zstandard library.
+
+## Building
+
+Requires Java 17+ and Maven.
+
+```sh
+mvn test      # runs the tests
+mvn install   # installs the jar in the local Maven repository
+```
+
+## Citation
+
+Mix-Piece and Sim-Piece are described in:
 
 - **[Flexible Grouping of Linear Segments for Highly Accurate Lossy Compression of Time Series Data](https://xkitsios.github.io/assets/pdf/mixpiece-vldbj24.pdf)** (2024)  
   X. Kitsios, P. Liakos, K. Papakonstantinopoulou, Y. Kotidis  
@@ -44,13 +102,54 @@ The results are for $ 0.5\% \times \text{range} \leq \epsilon \leq 5\% \times \t
   _Proceedings of the VLDB Endowment_, Vol. 16, No. 8, pp. 1910-1922  
   DOI: [10.14778/3594512.3594521](https://doi.org/10.14778/3594512.3594521)
 
-## Notes
+If you use Mix-Piece or Sim-Piece in your work, please cite them:
 
-- If you are interested in lossless time-series compression, you can check out our CHIMP algorithm available at [https://github.com/panagiotisl/chimp](https://github.com/panagiotisl/chimp).
+```bibtex
+@article{mix-piece,
+  author = {Kitsios, Xenophon and Liakos, Panagiotis and Papakonstantinopoulou, Katia and Kotidis, Yannis},
+  title = {Flexible grouping of linear segments for highly accurate lossy compression of time series data},
+  journal = {The VLDB Journal},
+  year = {2024},
+  month = sep,
+  day = {01},
+  volume = {33},
+  number = {5},
+  pages = {1569--1589},
+  issn = {0949-877X},
+  doi = {10.1007/s00778-024-00862-z},
+  url = {https://doi.org/10.1007/s00778-024-00862-z},
+}
 
-## Who do I talk to?
+@article{sim-piece,
+  author = {Kitsios, Xenophon and Liakos, Panagiotis and Papakonstantinopoulou, Katia and Kotidis, Yannis},
+  title = {Sim-Piece: Highly Accurate Piecewise Linear Approximation through Similar Segment Merging},
+  journal = {Proc. VLDB Endow.},
+  year = {2023},
+  month = apr,
+  volume = {16},
+  number = {8},
+  pages = {1910--1922},
+  numpages = {13},
+  issue_date = {April 2023},
+  publisher = {VLDB Endowment},
+  issn = {2150-8097},
+  doi = {10.14778/3594512.3594521},
+  url = {https://doi.org/10.14778/3594512.3594521},
+}
+```
+
+## See also
+
+- [DimWeaver](https://github.com/xkitsios/DimWeaver): lossy compression of trajectories with a maximum error.
+- [CHIMP](https://github.com/panagiotisl/chimp): lossless compression of floating-point time series.
+
+## Contact
 
 - [Xenophon Kitsios](https://xkitsios.github.io/)
 - [Panagiotis Liakos](https://cgi.di.uoa.gr/~p.liakos/)
 - [Katia Papakonstantinopoulou](https://www2.aueb.gr/users/katia/)
 - [Yannis Kotidis](https://pages.aueb.gr/users/kotidis/)
+
+## License
+
+Apache License 2.0, see [LICENSE](LICENSE).
