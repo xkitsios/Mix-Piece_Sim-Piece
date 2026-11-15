@@ -9,7 +9,7 @@
     <packaging>jar</packaging>
 
     <name>Mix-Piece / Sim-Piece</name>
-    <description>Mix-Piece and Sim-Piece are state-of-the-art lossy compression algorithms for time-series data.</description>
+    <description>Mix-Piece and Sim-Piece are lossy compression algorithms for time series with a guaranteed maximum absolute error.</description>
     <url>https://github.com/xkitsios/Mix-Piece_Sim-Piece</url>
 
     <licenses>
